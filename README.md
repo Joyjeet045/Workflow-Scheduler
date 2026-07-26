@@ -24,61 +24,34 @@ metrics.
 ## Architecture
 
 ```mermaid
-flowchart LR
-  subgraph clients[Clients]
-    cli[CLI]
-    http[HTTP Clients]
+flowchart TB
+    subgraph clients["Clients"]
+        cli["CLI"]
+        http["HTTP clients"]
     end
 
-  subgraph entry[Entry Layer]
-    api[API Server]
-    sched[Scheduler]
+    subgraph node["Scheduler Node"]
+        loader["Workflow loader"] --> executor["Executor"]
+        executor --> validator["DAG validator"]
+        executor --> store["File or SQLite store"]
+        executor --> queue["Run queue"]
+        api["HTTP API"] --> executor
+        api --> queue
+        scheduler["Scheduler"] --> executor
+        scheduler --> queue
+        worker["Worker"] --> queue
+        worker --> executor
+        metrics["Metrics collector"] --> scrape["/metrics"]
     end
 
-  subgraph exec[Execution Layer]
-    workerA[Worker A]
-    workerB[Worker B]
-    executor[Executor]
-    validator[DAG Validator]
-  end
-
-  subgraph state[State and Messaging]
-    queue[Run Queue]
-    db[(SQLite or File Store)]
-    bus[(Kafka or Event Bus)]
-  end
-
-  subgraph obs[Observability]
-    metrics[Metrics]
-    prom[Prometheus]
-    graf[Grafana]
-  end
-
+    cli --> loader
     http --> api
-  cli --> api
-  api --> queue
-  api --> executor
-  sched --> queue
-  workerA --> queue
-  workerB --> queue
-  workerA --> executor
-  workerB --> executor
-  executor --> validator
-  executor --> db
-  executor --> bus
-  metrics --> prom
-  prom --> graf
 ```
 
-The *executor* is the core. API, scheduler, and worker modes all feed work into
-the same execution path, so retries, conditions, timeouts, and compensation
-behave consistently.
-
-*Important:* the current repository implements the *run queue* and durable
-shared state with in-process or SQLite-backed components. The *Kafka or Event
-Bus* box in the diagram is a *conceptual scaled deployment example* to show how
-the system could be placed in a larger production architecture without changing
-the execution model.
+The *executor* is the core. CLI, scheduler, API, and worker modes all feed
+work into the same execution path, so retries, conditions, timeouts, and
+compensation behave consistently. In SQLite mode, API and worker processes
+share durable job state.
 
 ## Project layout
 
