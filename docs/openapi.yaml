@@ -1,0 +1,385 @@
+openapi: 3.0.3
+info:
+  title: Workflow Orchestrator API
+  version: 0.1.0
+  description: |
+    Scaffold OpenAPI spec for the Workflow Orchestrator control plane.
+    List endpoints support two response shapes:
+    - Default array responses (backward compatibility)
+    - Envelope responses when envelope=true or X-List-Envelope=true
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /ready:
+    get:
+      summary: Readiness check
+      responses:
+        '200':
+          description: Ready
+        '503':
+          description: Not ready
+  /workflows:
+    get:
+      summary: List workflows
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Envelope'
+      responses:
+        '200':
+          description: Workflows list or envelope
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Workflow'
+                  - $ref: '#/components/schemas/WorkflowListEnvelope'
+    post:
+      summary: Create workflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workflow'
+      responses:
+        '201':
+          description: Created
+  /runs:
+    get:
+      summary: List runs
+      parameters:
+        - name: workflowId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: requestId
+          in: query
+          schema:
+            type: string
+        - name: startedAfter
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: startedBefore
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Envelope'
+      responses:
+        '200':
+          description: Runs list or envelope
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Run'
+                  - $ref: '#/components/schemas/RunListEnvelope'
+    post:
+      summary: Trigger run
+      responses:
+        '201':
+          description: Run created
+        '202':
+          description: Async run enqueued
+  /jobs:
+    get:
+      summary: List jobs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: workflowId
+          in: query
+          schema:
+            type: string
+        - name: requestId
+          in: query
+          schema:
+            type: string
+        - name: updatedAfter
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: updatedBefore
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Envelope'
+      responses:
+        '200':
+          description: Jobs list or envelope
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/RunQueueJob'
+                  - $ref: '#/components/schemas/RunQueueJobListEnvelope'
+  /jobs/history/{jobId}:
+    get:
+      summary: Job transition history
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: toStatus
+          in: query
+          schema:
+            type: string
+        - name: actor
+          in: query
+          schema:
+            type: string
+        - name: createdAfter
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: createdBefore
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Envelope'
+      responses:
+        '200':
+          description: History list or envelope
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/RunJobTransition'
+                  - $ref: '#/components/schemas/RunJobTransitionListEnvelope'
+  /jobs/cancel:
+    post:
+      summary: Bulk cancel jobs
+      responses:
+        '200':
+          description: Bulk cancel result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkCancelResponse'
+  /jobs/requeue:
+    post:
+      summary: Bulk requeue jobs
+      responses:
+        '200':
+          description: Bulk requeue result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkRequeueResponse'
+  /jobs/purge:
+    post:
+      summary: Purge jobs or dry-run
+      responses:
+        '200':
+          description: Purge result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeResponse'
+components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+    Order:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+    Envelope:
+      name: envelope
+      in: query
+      schema:
+        type: boolean
+  schemas:
+    Workflow:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+    Run:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        workflowId:
+          type: string
+    RunQueueJob:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        workflowId:
+          type: string
+        runId:
+          type: string
+        status:
+          type: string
+    RunJobTransition:
+      type: object
+      additionalProperties: true
+      properties:
+        jobId:
+          type: string
+        toStatus:
+          type: string
+        actor:
+          type: string
+    ListEnvelopeBase:
+      type: object
+      required: [total, limit, offset, returned]
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        returned:
+          type: integer
+    WorkflowListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ListEnvelopeBase'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Workflow'
+    RunListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ListEnvelopeBase'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Run'
+    RunQueueJobListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ListEnvelopeBase'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RunQueueJob'
+    RunJobTransitionListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ListEnvelopeBase'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RunJobTransition'
+    BulkFailureDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    BulkResult:
+      type: object
+      required: [resultCode, failed, failedDetails]
+      properties:
+        resultCode:
+          type: string
+          enum: [BULK_OK, BULK_PARTIAL_FAILURE, BULK_ALL_FAILED]
+        failed:
+          type: object
+          additionalProperties:
+            type: string
+        failedDetails:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/BulkFailureDetail'
+    BulkCancelResponse:
+      allOf:
+        - $ref: '#/components/schemas/BulkResult'
+        - type: object
+          properties:
+            cancelled:
+              type: array
+              items:
+                $ref: '#/components/schemas/RunQueueJob'
+    BulkRequeueResponse:
+      allOf:
+        - $ref: '#/components/schemas/BulkResult'
+        - type: object
+          properties:
+            requeued:
+              type: array
+              items:
+                $ref: '#/components/schemas/RunQueueJob'
+    PurgeResponse:
+      type: object
+      required: [deleted, resultCode]
+      properties:
+        deleted:
+          type: integer
+        resultCode:
+          type: string
+          enum: [BULK_OK, PURGE_LIMIT_REACHED, PURGE_DRY_RUN_LIMIT_REACHED]
+        dryRun:
+          type: boolean
+        matched:
+          type: integer

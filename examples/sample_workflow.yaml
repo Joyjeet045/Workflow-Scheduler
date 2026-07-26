@@ -1,0 +1,47 @@
+id: wf-order-pipeline-yaml
+name: Order Processing Pipeline YAML
+description: YAML sample for advanced workflow orchestrator
+version: 1.0.0
+maxConcurrency: 3
+failFast: false
+compensateOnFailure: true
+timeout: 2m
+tasks:
+  - id: validate-order
+    name: Validate Order
+    action: print
+    input:
+      message: Order validated from YAML
+    timeout: 2s
+    retryPolicy:
+      maxAttempts: 1
+      backoffBase: 100ms
+
+  - id: reserve-inventory
+    name: Reserve Inventory
+    action: randomFail
+    input:
+      failPercent: "20"
+    dependsOn: [validate-order]
+    condition: on_success:validate-order
+    runAfter: 100ms
+    timeout: 3s
+    retryPolicy:
+      maxAttempts: 3
+      backoffBase: 200ms
+    compensation:
+      action: print
+      input:
+        message: Compensate reservation ${reserve-inventory.status}
+      timeout: 1s
+
+  - id: charge-payment
+    name: Charge Payment
+    action: print
+    input:
+      message: Payment after ${reserve-inventory.status}
+    dependsOn: [reserve-inventory]
+    timeout: 2s
+    retryPolicy:
+      maxAttempts: 2
+      backoffBase: 150ms

@@ -1,0 +1,101 @@
+{
+  "id": "wf-order-pipeline",
+  "name": "Order Processing Pipeline",
+  "description": "Basic to advanced workflow demo with dependencies, retries and fail-safe branches.",
+  "version": "1.0.0",
+  "maxConcurrency": 3,
+  "failFast": false,
+  "compensateOnFailure": true,
+  "timeout": "2m",
+  "tasks": [
+    {
+      "id": "validate-order",
+      "name": "Validate Order",
+      "action": "print",
+      "input": {
+        "message": "Order validated"
+      },
+      "timeout": "2s",
+      "retryPolicy": {
+        "maxAttempts": 1,
+        "backoffBase": "100ms"
+      }
+    },
+    {
+      "id": "reserve-inventory",
+      "name": "Reserve Inventory",
+      "action": "randomFail",
+      "input": {
+        "failPercent": "35"
+      },
+      "dependsOn": [
+        "validate-order"
+      ],
+      "condition": "on_success:validate-order",
+      "runAfter": "100ms",
+      "timeout": "3s",
+      "retryPolicy": {
+        "maxAttempts": 3,
+        "backoffBase": "200ms"
+      },
+      "compensation": {
+        "action": "print",
+        "input": {
+          "message": "Compensate inventory reservation for ${reserve-inventory.status}"
+        },
+        "timeout": "1s"
+      }
+    },
+    {
+      "id": "risk-check",
+      "name": "Fraud Risk Check",
+      "action": "wait",
+      "input": {
+        "durationMs": "500"
+      },
+      "dependsOn": [
+        "validate-order"
+      ],
+      "condition": "output_contains:validate-order:validated",
+      "timeout": "2s",
+      "retryPolicy": {
+        "maxAttempts": 1,
+        "backoffBase": "100ms"
+      }
+    },
+    {
+      "id": "charge-payment",
+      "name": "Charge Payment",
+      "action": "print",
+      "input": {
+        "message": "Payment charged after ${reserve-inventory.status} and ${risk-check.output}"
+      },
+      "dependsOn": [
+        "reserve-inventory",
+        "risk-check"
+      ],
+      "timeout": "2s",
+      "retryPolicy": {
+        "maxAttempts": 2,
+        "backoffBase": "150ms"
+      }
+    },
+    {
+      "id": "notify-customer",
+      "name": "Notify Customer",
+      "action": "print",
+      "input": {
+        "message": "Customer notified"
+      },
+      "dependsOn": [
+        "charge-payment"
+      ],
+      "timeout": "2s",
+      "retryPolicy": {
+        "maxAttempts": 1,
+        "backoffBase": "100ms"
+      },
+      "allowFailure": true
+    }
+  ]
+}
