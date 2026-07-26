@@ -1,0 +1,13 @@
+# Build outputs
+bin/
+*.exe
+*.out
+
+# Test artifacts
+*.test
+
+# Data snapshots
+data/
+
+# IDE
+.vscode/
